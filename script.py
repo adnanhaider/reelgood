@@ -41,7 +41,7 @@ def GetProxies():
     return proxies
 
 
-proxies = GetProxies()
+# proxies = GetProxies()
 
 # options.add_argument('--headless')
 # options.add_argument("--disable-notifications")
@@ -71,9 +71,9 @@ def ReadExcel():
     mod_date_from_xl_file = []
 
     for i in range(2, last_row_index_with_data+1):
-        ratings_from_xl_file.append(sheet_obj.cell(row=i, column=3).value)
-        titles_from_xl_file.append(sheet_obj.cell(row=i, column=2).value)
-        mod_date_from_xl_file.append(sheet_obj.cell(row=i, column=1).value)
+        ratings_from_xl_file.append(sheet_obj.cell(row=i, column=2).value)
+        titles_from_xl_file.append(sheet_obj.cell(row=i, column=1).value)
+        mod_date_from_xl_file.append(sheet_obj.cell(row=i, column=4).value)
 
     dictionary = { 
         'titles_from_xl_file':titles_from_xl_file, 
@@ -316,26 +316,51 @@ def WriteToExcel(dictionary):
     for title in titles_from_xl_file:
         # print(title, '--------------------------tilte')
         SearchForSeasonOneTorrent(str(title))
+
 def SearchForSeasonOneTorrent(title):
     options = webdriver.ChromeOptions()
-    print(random.choice(proxies), '-----------------------')
+    # print(random.choice(proxies), '-----------------------', len(proxies))
     found = False
     while(not found):
-        try:
-            options.add_argument(f'--proxy-server={random.choice(proxies)}')
-            driver = webdriver.Chrome('chromedriver', options=options)
-            # driver.get('https://google.com')
-            driver.get('https://rarbgget.org/torrents.php')
-            found = True;
-        except:
-            time.sleep(30)
-            not_found_seasons.append(title)
+        # try:
+        # options.add_argument(f'--proxy-server={random.choice(proxies)}')
+        driver = webdriver.Chrome('chromedriver', options=options)
+        driver.get('https://google.com')
+        # try:
+        # time.sleep(60)
+        # i_agree = driver.find_element_by_xpath('//*[@id="agreeButton"]')
+        # i_agree.click()
+        # WebDriverWait(driver,30).until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#introAgreeButton'))).click()
+
+        # except:
+        #     print('I_agree was not clicked')
+        #     pass
+        # driver.get('https://rarbgget.org/torrents.php')
+        found = True;
+        # except:
+        #     time.sleep(30)
+        #     not_found_seasons.append(title)
         
     # driver.find_element_by_id('searchinput').get()
     try:
-        search_input = driver.find_element_by_xpath('//*[@id="searchinput"]')
-        search_input.send_keys(title.lower()+' season 1')
+        print('got here')
+        search_input = driver.find_element_by_xpath('/html/body/div[1]/div[3]/form/div[1]/div[1]/div[1]/div/div[2]/input')
+        search_input.send_keys('rarbg: '+title.lower()+' season 1')
         search_input.send_keys(Keys.ENTER)
+        # time.sleep(60)
+        search_result_url = driver.find_element_by_xpath('//*[@id="rso"]/div/div[1]/div/div[1]/a').get_attribute('href')
+        driver.get(search_result_url)
+        magnet_link_url = ''
+        try:
+            time.sleep(60)
+            magnet_link_url = driver.find_element_by_xpath('/html/body/table[3]/tbody/tr/td[2]/div/table/tbody/tr[2]/td/div/table/tbody/tr[1]/td[2]/a[2]')
+        except:
+            pass
+        if magnet_link_url != '':
+            magnet_link_url.click()
+        else:
+            print('do something else .....')
+
     except:
         pass
     time.sleep(60)
