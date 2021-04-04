@@ -15,6 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.alert import Alert
 
 from selenium.common.exceptions import TimeoutException
 
@@ -313,57 +314,76 @@ def WriteToExcel(dictionary):
     dictionary_from_file = ReadExcel()
     titles_from_xl_file = dictionary_from_file['titles_from_xl_file']
     # CreateDirsFromListOfTitlesInExcelFile(titles_from_xl_file)
-    for title in titles_from_xl_file:
-        # print(title, '--------------------------tilte')
-        SearchForSeasonOneTorrent(str(title))
 
-def SearchForSeasonOneTorrent(title):
+
     options = webdriver.ChromeOptions()
     # print(random.choice(proxies), '-----------------------', len(proxies))
-    found = False
-    while(not found):
-        # try:
-        # options.add_argument(f'--proxy-server={random.choice(proxies)}')
-        driver = webdriver.Chrome('chromedriver', options=options)
-        driver.get('https://google.com')
-        # try:
-        # time.sleep(60)
-        # i_agree = driver.find_element_by_xpath('//*[@id="agreeButton"]')
-        # i_agree.click()
-        # WebDriverWait(driver,30).until(EC.element_to_be_clickable((By.CSS_SELECTOR,'#introAgreeButton'))).click()
+    # found = False
+    # Pass the argument 1 to allow and 2 to block
+    # options.setExperimentalOption("excludeSwitches",
+    # array.asList("disable-popup-blocking"));
+    options.add_argument(f"user-data-dir={Dir_Name}/profile");
+    options.add_experimental_option("prefs", { 
+        "profile.default_content_setting_values.notifications": 2,
+        "disable-popup-blocking": True,
+    })
+    driver = webdriver.Chrome('chromedriver', options=options)
+    driver.get('https://www.1377x.to/')
 
-        # except:
-        #     print('I_agree was not clicked')
-        #     pass
-        # driver.get('https://rarbgget.org/torrents.php')
-        found = True;
-        # except:
-        #     time.sleep(30)
-        #     not_found_seasons.append(title)
-        
-    # driver.find_element_by_id('searchinput').get()
+    for title in titles_from_xl_file:
+        # print(title, '--------------------------tilte')
+        SearchForSeasonOneTorrent(driver, str(title))
+import array
+def SearchForSeasonOneTorrent(driver, title):
+    time.sleep(random.choice([13]))
     try:
-        print('got here')
-        search_input = driver.find_element_by_xpath('/html/body/div[1]/div[3]/form/div[1]/div[1]/div[1]/div/div[2]/input')
-        search_input.send_keys('rarbg: '+title.lower()+' season 1')
+        print('Searching for torrent, --------')
+        search_input = driver.find_element_by_xpath('//*[@id="autocomplete"]')
+        search_input.clear()
+        search_input.send_keys(title.lower()+' season 1')
         search_input.send_keys(Keys.ENTER)
-        # time.sleep(60)
-        search_result_url = driver.find_element_by_xpath('//*[@id="rso"]/div/div[1]/div/div[1]/a').get_attribute('href')
-        driver.get(search_result_url)
-        magnet_link_url = ''
-        try:
-            time.sleep(60)
-            magnet_link_url = driver.find_element_by_xpath('/html/body/table[3]/tbody/tr/td[2]/div/table/tbody/tr[2]/td/div/table/tbody/tr[1]/td[2]/a[2]')
-        except:
-            pass
-        if magnet_link_url != '':
-            magnet_link_url.click()
-        else:
-            print('do something else .....')
+        
+        time.sleep(2)
+        CloseAllTabsExceptFirst(driver)
+        print('Enter pressed ------------------------------')
+        time.sleep(10)
+        # result_rows = driver.find_element_by_xpath('//table/tbody/tr')
+        # print(result_rows, ' this is rows variable')
+        driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/table/tbody/tr[1]/td[1]/a[2]').click() # this is while cliking the first searched result
 
+        time.sleep(1)
+        CloseAllTabsExceptFirst(driver)
+        # clicking the first search result
+
+        print('open the first link in the search results -------------------')
+        time.sleep(20)
+
+        driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/ul[1]/li[1]/a').click() 
+        # clicking the magnet link
+        time.sleep(1)
+        CloseAllTabsExceptFirst(driver)
+        
+        # driver.find_element_by_xpath("//a[contains(.,'Magnet Download')]").click()
+
+        print('clicked magnet link ==========================')
+        # time.sleep(10)        
+        time.sleep(2)
+        driver.get('https://www.1377x.to/')
     except:
         pass
-    time.sleep(60)
+    time.sleep(random.choice([4, 5, 0.6, 2.9]))
+
+def CloseAllTabsExceptFirst(driver):
+    driver_len = len(driver.window_handles) #fetching the Number of Opened tabs
+    print("Length of Driver = ", driver_len)
+    if driver_len > 1: # Will execute if more than 1 tabs found.
+        for i in range(driver_len - 1, 0, -1):
+            driver.switch_to.window(driver.window_handles[i]) #will close the last tab first.
+            driver.close()
+            print("Closed Tab No. ", i)
+        driver.switch_to.window(driver.window_handles[0]) # Switching the driver focus to First tab.
+    else:
+        print("Found only Single tab.")
 
 def CreateDirsFromListOfTitlesInExcelFile(titles_from_xl_file):
     print(f'Please wait Directories are being created')
