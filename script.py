@@ -47,6 +47,7 @@ def GetProxies():
 # options.add_argument('--headless')
 # options.add_argument("--disable-notifications")
 
+
 os.system('clear')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -70,16 +71,19 @@ def ReadExcel():
     ratings_from_xl_file = []
     titles_from_xl_file = []
     mod_date_from_xl_file = []
+    download_status_from_xl_file = []
 
     for i in range(2, last_row_index_with_data+1):
-        ratings_from_xl_file.append(sheet_obj.cell(row=i, column=2).value)
         titles_from_xl_file.append(sheet_obj.cell(row=i, column=1).value)
+        ratings_from_xl_file.append(sheet_obj.cell(row=i, column=2).value)
         mod_date_from_xl_file.append(sheet_obj.cell(row=i, column=4).value)
+        download_status_from_xl_file.append(sheet_obj.cell(row=i, column=5).value)
 
     dictionary = { 
         'titles_from_xl_file':titles_from_xl_file, 
         'ratings_from_xl_file': ratings_from_xl_file, 
-        'mod_date_from_xl_file': mod_date_from_xl_file
+        'mod_date_from_xl_file': mod_date_from_xl_file,
+        'download_status_from_xl_file': download_status_from_xl_file
          }
     return dictionary
 
@@ -155,6 +159,7 @@ def Process():
     is_last_page = False
     titles = []
     ratings = []
+    number_of_seasons = []
     __available_on = []
     available_on = []
     unwanted_titles = GetUnWantedTitles()
@@ -189,14 +194,18 @@ def Process():
         # print(table)
         if table: # checking if the table exists in the current page else the page will be last page 
             print(f'general titles, ratings and channels are being scrapeed currently at page # {counter}')
-            # Netflix, Hulu, HBO, Showtime, Startz, Apple+
+            
             rows = soup.find_all('tr', attrs={'class':'css-gfsdx9'})
             for row in rows:
                 td = row.find_all('td')
+                row.find_all('')
                 td = [e.text.strip() for e in td]
+                
                 data.append([e for e in td if e])
             #  getting titles and ratings
-            for row in data:
+            #             
+            for i, row in enumerate(data):
+                number_of_seasons.append(getNumberOfSeasons(i))
                 if row[4].split('/')[0] == 'N': # if a rating is unavailable means N/A
                     rating = 0
                     ratings.append(rating)
@@ -207,6 +216,7 @@ def Process():
                     ratings.append(rating)# appending ratings from website source
                     # getting logos
             tds = soup.find_all('td', class_ = lambda value: value == 'css-1vuzpp2')
+            
             for i, td in enumerate(tds):
                 images_in_current_row = []
                 images_in_current_row = td.find_all('img')
@@ -221,11 +231,34 @@ def Process():
                     temp += a
                     temp += ','
                 available_on.append(temp[:-1]) # removing the last comma
+           
         else:
             is_last_page = True
     
     dictionary = {'titles':titles, 'ratings': ratings, 'available_on': available_on, 'unwanted_titles': unwanted_titles}
     WriteToExcel(dictionary)
+
+def getNumberOfSeasons(i):
+    time.sleep(5)
+    url = driver.find_element_by_xpath(f'//*[@id="app_mountpoint"]/div[4]/main/div[6]/div[2]/table/tbody/tr[{i}]/td[2]/a').get_attribute('href')
+    print(url, 'this is url--------------------')
+    driver.execute_script(f"window.open('https://reelgood.com{url}');")
+    driver.switch_to.window(driver.window_handles[1])
+    total_seasons = driver.find_element_by_xpath('//*[@id="app_mountpoint"]/div[3]/main/div/section/div[3]/div[2]/div/div[4]/div/div[2]/div[1]/div/*')
+    print(total_seasons, 'this is total seasons')
+    driver.close()
+    driver.switch_to.window(driver.window_handles[0])
+    return 0
+    # for url in links:
+    #     print(url,'this is url====================')
+    #     driver.execute_script(f"window.open('https://reelgood.com{url}');")
+    #     driver.switch_to.window(driver.window_handles[1])
+    #     total_seasons = driver.find_element_by_xpath('//*[@id="app_mountpoint"]/div[3]/main/div/section/div[3]/div[2]/div/div[4]/div/div[2]/div[1]/div/*')
+    #     number_of_seasons.append(total_seasons)
+    #     print(total_seasons, 'this is total seasons')
+    #     driver.close()
+    #     driver.switch_to.window(driver.window_handles[0])
+    # return number_of_seasons
 
 def WriteToExcel(dictionary):
     dictionary = ApplyFilter(dictionary)
@@ -333,7 +366,7 @@ def WriteToExcel(dictionary):
     for title in titles_from_xl_file:
         # print(title, '--------------------------tilte')
         SearchForSeasonOneTorrent(driver, str(title))
-import array
+
 def SearchForSeasonOneTorrent(driver, title):
     time.sleep(random.choice([13]))
     try:
