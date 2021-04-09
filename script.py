@@ -71,20 +71,24 @@ def ReadExcel():
     ratings_from_xl_file = []
     titles_from_xl_file = []
     mod_date_from_xl_file = []
-    download_status_from_xl_file = []
+    downloaded_seasons_from_xl_file = []
+    total_seasons_from_xl_file = []
 
     for i in range(2, last_row_index_with_data+1):
         titles_from_xl_file.append(sheet_obj.cell(row=i, column=1).value)
         ratings_from_xl_file.append(sheet_obj.cell(row=i, column=2).value)
         mod_date_from_xl_file.append(sheet_obj.cell(row=i, column=4).value)
-        download_status_from_xl_file.append(sheet_obj.cell(row=i, column=5).value)
+        downloaded_seasons_from_xl_file.append(sheet_obj.cell(row=i, column=5).value)
+        total_seasons_from_xl_file.append(sheet_obj.cell(row=i, column=6).value)
 
     dictionary = { 
         'titles_from_xl_file':titles_from_xl_file, 
         'ratings_from_xl_file': ratings_from_xl_file, 
         'mod_date_from_xl_file': mod_date_from_xl_file,
-        'download_status_from_xl_file': download_status_from_xl_file
-         }
+        'downloaded_seasons_from_xl_file': downloaded_seasons_from_xl_file,
+        'total_seasons_from_xl_file': total_seasons_from_xl_file
+    }
+
     return dictionary
 
 def GetLastRowIndexWithData(sheet_obj):
@@ -204,8 +208,9 @@ def Process():
                 data.append([e for e in td if e])
             #  getting titles and ratings
             #             
-            for i, row in enumerate(data):
-                number_of_seasons.append(getNumberOfSeasons(i))
+            for row in data:
+                url = 'https://reelgood.com/show/' + row[0].lower().replace(' ', '-')+'-' + row[2]
+                number_of_seasons.append(getNumberOfSeasons(url))
                 if row[4].split('/')[0] == 'N': # if a rating is unavailable means N/A
                     rating = 0
                     ratings.append(rating)
@@ -235,17 +240,13 @@ def Process():
         else:
             is_last_page = True
     
-    dictionary = {'titles':titles, 'ratings': ratings, 'available_on': available_on, 'unwanted_titles': unwanted_titles}
+    dictionary = {'titles':titles, 'ratings': ratings, 'available_on': available_on, 'unwanted_titles': unwanted_titles, 'number_of_seasons': number_of_seasons}
     WriteToExcel(dictionary)
 
-def getNumberOfSeasons(i):
-    time.sleep(5)
-    url = driver.find_element_by_xpath(f'//*[@id="app_mountpoint"]/div[4]/main/div[6]/div[2]/table/tbody/tr[{i}]/td[2]/a').get_attribute('href')
-    print(url, 'this is url--------------------')
-    driver.execute_script(f"window.open('https://reelgood.com{url}');")
+def getNumberOfSeasons(url):
+    driver.execute_script(f'window.open("{url}");')
     driver.switch_to.window(driver.window_handles[1])
-    total_seasons = driver.find_element_by_xpath('//*[@id="app_mountpoint"]/div[3]/main/div/section/div[3]/div[2]/div/div[4]/div/div[2]/div[1]/div/*')
-    print(total_seasons, 'this is total seasons')
+    total_seasons = len(driver.find_elements_by_xpath('//*[@id="app_mountpoint"]/div[3]/main/div/section/div[3]/div[2]/div/div[4]/div/div[2]/div[1]/div/*'))
     driver.close()
     driver.switch_to.window(driver.window_handles[0])
     return 0
@@ -261,10 +262,12 @@ def getNumberOfSeasons(i):
     # return number_of_seasons
 
 def WriteToExcel(dictionary):
+    number_of_seasons = dictionary['number_of_seasons']
     dictionary = ApplyFilter(dictionary)
     titles = dictionary['allowed_titles']
     ratings = dictionary['allowed_ratings']
     available_on = dictionary['allowed_available_on']
+    # number_of_seasons = dictionary['number_of_seasons']
     
     wb = xl.load_workbook(xl_file_path)
     sheet = wb['Sheet1']
@@ -273,6 +276,7 @@ def WriteToExcel(dictionary):
     dictionary_from_file = ReadExcel()
     titles_from_xl_file = dictionary_from_file['titles_from_xl_file']
     ratings_from_xl_file = dictionary_from_file['ratings_from_xl_file']
+    downloaded_seasons_from_xl_file = dictionary_from_file['downloaded_seasons_from_xl_file']
     # mod_date_from_xl_file = dictionary_from_file['mod_date_from_xl_file']
     #  creting headings ----------------------------------
     sheet.cell(row=1, column=1).value = "Titles"
@@ -280,13 +284,15 @@ def WriteToExcel(dictionary):
     sheet.cell(row=1, column=3).value = "Available On"
     sheet.cell(row=1, column=4).value = "Download Date"
     sheet.cell(row=1, column=5).value = "Downloaded"
+    sheet.cell(row=1, column=6).value = "# of Aired Seasons"
     # ----------------------------------------------------
-    print(f'titles from website length = {len(titles)}')
-    print(f'titles from excel length = {len(titles_from_xl_file)}')
+    # print(f'titles from website length = {len(titles)}')
+    # print(f'titles from excel length = {len(titles_from_xl_file)}')
     print('Please wait Excel file is being filled...')
     titles_left = []
     ratings_left = []
     available_on_left = []
+    number_of_seasons_left = []
     if GetLastRowIndexWithData(sheet) == 1:
         print('Populating excel file for the first time.')
         for i, title in enumerate(titles):
@@ -294,9 +300,9 @@ def WriteToExcel(dictionary):
                 sheet.cell(row=i+2, column=1).value = title             # row[0] gets the title of TV Show
                 sheet.cell(row=i+2, column=2).value = ratings[i]        # ratings gets the ratings of TV Show
                 sheet.cell(row=i+2, column=3).value = available_on[i]
-                sheet.cell(row=i+2, column=5).value = 'No'
                 sheet.cell(row=i+2, column=4).value = '-'
                 sheet.cell(row=i+2, column=5).value = 'No'
+                sheet.cell(row=i+2, column=6).value = number_of_seasons[i]
         wb.save(xl_file_path)
     elif min(len(titles), len(titles_from_xl_file)) == len(titles_from_xl_file):
         for i, title in enumerate(titles_from_xl_file):
@@ -311,19 +317,23 @@ def WriteToExcel(dictionary):
                 sheet.cell(row=i+2, column=2).value = ratings[i]
                 sheet.cell(row=i+2, column=2).fill = PatternFill(start_color='FFFFB7', end_color='FFFFB7',fill_type='solid')
         wb.save(xl_file_path)
-        
+
         low = len(titles_from_xl_file)
         high = len(titles)
         for i in range(low, high):
             titles_left.append(titles[i])
             ratings_left.append(ratings[i])
             available_on_left.append(available_on[i])
-        
+            number_of_seasons_left.append(number_of_seasons[i])
+        # adding new entries at the end of the xl file
         for i in range(high-low):
             # sheet.cell(row=low+i, column=1).value = datetime.datetime.now().date()
             sheet.cell(row=low+i, column=1).value = titles_left[i]
             sheet.cell(row=low+i, column=2).value = ratings_left[i]
             sheet.cell(row=low+i, column=3).value = available_on_left[i]
+            sheet.cell(row=low+i, column=4).value = '-'
+            sheet.cell(row=low+i, column=5).value = 'No'
+            sheet.cell(row=low+i, column=6).value = available_on_left[i]
         wb.save(xl_file_path)
     else:
         for i, title in enumerate(titles):
@@ -346,8 +356,8 @@ def WriteToExcel(dictionary):
     # again reading excel file
     dictionary_from_file = ReadExcel()
     titles_from_xl_file = dictionary_from_file['titles_from_xl_file']
+    number_of_seasons = dictionary_from_file['number_of_seasons']
     # CreateDirsFromListOfTitlesInExcelFile(titles_from_xl_file)
-
 
     options = webdriver.ChromeOptions()
     # print(random.choice(proxies), '-----------------------', len(proxies))
@@ -363,47 +373,57 @@ def WriteToExcel(dictionary):
     driver = webdriver.Chrome('chromedriver', options=options)
     driver.get('https://www.1377x.to/')
 
-    for title in titles_from_xl_file:
+    for i, title in enumerate(titles_from_xl_file):
         # print(title, '--------------------------tilte')
-        SearchForSeasonOneTorrent(driver, str(title))
+        SearchForAllSeasonTorrent(driver, str(title), i, number_of_seasons[i] )
 
-def SearchForSeasonOneTorrent(driver, title):
+def WriteDownloadedSeasonNumberInExcel(show_index, season_no):
+    wb = xl.load_workbook(xl_file_path)
+    sheet = wb['Sheet1']
+    sheet = wb.active
+    sheet.cell(row=i+1, column=5).value = season_no
+    wb.save(xl_file_path)
+
+def SearchForAllSeasonTorrent(driver, title, i, total_seasons):
     time.sleep(random.choice([13]))
-    try:
-        print('Searching for torrent, --------')
-        search_input = driver.find_element_by_xpath('//*[@id="autocomplete"]')
-        search_input.clear()
-        search_input.send_keys(title.lower()+' season 1')
-        search_input.send_keys(Keys.ENTER)
-        
-        time.sleep(2)
-        CloseAllTabsExceptFirst(driver)
-        print('Enter pressed ------------------------------')
-        time.sleep(10)
-        # result_rows = driver.find_element_by_xpath('//table/tbody/tr')
-        # print(result_rows, ' this is rows variable')
-        driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/table/tbody/tr[1]/td[1]/a[2]').click() # this is while cliking the first searched result
+    for index in range(1, total_seasons):
+        try:
+            print('Searching for torrent, --------')
+            search_input = driver.find_element_by_xpath('//*[@id="autocomplete"]')
+            search_input.clear()
+            search_input.send_keys(title.lower()+f' season {index}')
+            search_input.send_keys(Keys.ENTER)
+            
+            time.sleep(2)
+            CloseAllTabsExceptFirst(driver)
+            print('Enter pressed ------------------------------')
+            time.sleep(10)
+            # result_rows = driver.find_element_by_xpath('//table/tbody/tr')
+            # print(result_rows, ' this is rows variable')
+            driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/table/tbody/tr[1]/td[1]/a[2]').click() # this is while cliking the first searched result
 
-        time.sleep(1)
-        CloseAllTabsExceptFirst(driver)
-        # clicking the first search result
+            time.sleep(1)
+            CloseAllTabsExceptFirst(driver)
+            # clicking the first search result
 
-        print('open the first link in the search results -------------------')
-        time.sleep(20)
+            print('open the first link in the search results -------------------')
+            time.sleep(20)
 
-        driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/ul[1]/li[1]/a').click() 
-        # clicking the magnet link
-        time.sleep(1)
-        CloseAllTabsExceptFirst(driver)
-        
-        # driver.find_element_by_xpath("//a[contains(.,'Magnet Download')]").click()
+            driver.find_element_by_xpath('/html/body/main/div/div/div/div[2]/div[1]/ul[1]/li[1]/a').click() 
+            # clicking the magnet link
+            time.sleep(1)
+            CloseAllTabsExceptFirst(driver)
 
-        print('clicked magnet link ==========================')
-        # time.sleep(10)        
-        time.sleep(2)
-        driver.get('https://www.1377x.to/')
-    except:
-        pass
+            
+            # driver.find_element_by_xpath("//a[contains(.,'Magnet Download')]").click()
+
+            print('clicked magnet link ==========================')
+            WriteDownloadedSeasonNumberInExcel(i, season_no=index)
+            # time.sleep(10)        
+            time.sleep(2)
+            driver.get('https://www.1377x.to/')
+        except:
+            pass
     time.sleep(random.choice([4, 5, 0.6, 2.9]))
 
 def CloseAllTabsExceptFirst(driver):
